@@ -17,8 +17,16 @@ int main()
     tcp_client = socket(AF_INET, SOCK_STREAM , 0);
     client.sin_family = AF_INET;
     inet_pton(AF_INET , "127.0.0.1", &client.sin_addr);
-    client.sin_port = htons(1025);
+    client.sin_port = htons(9000);
+    srand(time(NULL));
+    int r = rand();
+    char strbuff[20];
+    sprintf(strbuff,"%d",r);
+    char message[20] = "fup";
+    strcat(message,strbuff);
+    printf("%s\n",message);
     connect(tcp_client , (struct sockaddr *)&client ,sizeof(client));
-    int sendconf = send(tcp_client, "fup this is the message for ever and ever", 1024, 0);
+    int sendconf = send(tcp_client, message, 1024, 0);
     printf("%d", sendconf);
+
 }
