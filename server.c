@@ -47,15 +47,6 @@ typedef struct args_thread
     sqlite3 *db;
     int id;
 } ARGS;
-void delay(int number_of_seconds)
-{
-    int milli_seconds = 1000 * number_of_seconds;
-
-    clock_t start_time = clock();
-
-    while (clock() < start_time + milli_seconds)
-        ;
-}
 
 static int load_callback(void *data, int argc, char **argv, char **azColName)
 {
@@ -67,12 +58,12 @@ static int load_callback(void *data, int argc, char **argv, char **azColName)
         if(i == 1)
         {
             number = argv[i]?atoi(argv[i]) :0;
-           // printf("%s = %d\n", azColName[i], number);
+            printf("%s = %d\n", azColName[i], number);
         }
         if(i == 2)
         {
             t = argv[i] ? (time_t)atoi(argv[i]) : 0;
-            //printf("%s = %s\n", azColName[i],ctime(&t));
+            printf("%s = %s\n", azColName[i],ctime(&t));
         }
     }
     printf("\n");
@@ -112,7 +103,7 @@ void *handle_load(void *args_thread)
     char *sql = "SELECT * FROM NUMBERS";
     while(1)
     {
-        delay(3000);
+        sleep(10);
         rc = sqlite3_exec(db, sql, load_callback, NULL, &errMsg);
         if (rc != SQLITE_OK)
         {
@@ -229,8 +220,8 @@ void *handel_client(void *parlSocket)
     const char *p2 = (const char*)args->prefix.p2;
     int id = (int)args->id;
     free(parlSocket);
-    printf("thread %d is started\n",id);
-    sleep(2);
+    //printf("thread %d is started\n",id);
+    //sleep(2);
     // reading message
     char *buffer = (char *)malloc(REQUESTMAX);
     int reccng = recv(socket ,buffer,REQUESTMAX, 0);
@@ -254,7 +245,6 @@ void *handel_client(void *parlSocket)
     if ((i = subset_search(buffer,p1)) != -1)
     {
         strncpy(temp, buffer + i, REQUESTMAX - i);
-        printf("%ld \t %s\n",strlen(temp) , temp);
         if(strlen(temp)> 10)
         {
             //perror("Integer too long!, saving it as an string\n");
@@ -276,10 +266,10 @@ void *handel_client(void *parlSocket)
         
     }else{
         perror("Message recieved has invalid type!\n");
-        pthread_exit(0);
         free(buffer);
         close(socket);
         clients[i] = 0;
+        pthread_exit(0);
         return 0;
     }
     free(buffer);
@@ -289,15 +279,15 @@ void *handel_client(void *parlSocket)
     if (query_db != SQLITE_OK)
     {
         fprintf(stderr, "SQL exec error :%s\n", errorMsg);
-        pthread_exit(0);
         close(0);
         clients[i] = 0;
+        pthread_exit(0);
         return 0;
     }
-    printf("Thread %d finished\n",id);
-    pthread_exit(0);
+    //printf("Thread %d finished\n",id);
+    clients[id] = 0;
     close(socket);
-    clients[i] = 0;
+    pthread_exit(0);
     return 0;
 }
 
@@ -335,10 +325,11 @@ int main()
     char port[20];
     sprintf(port,"%d",config.address.port);
     int tcp_socket = creat_tcp_socket("127.0.0.1", port, "IPV4");
-    int i = 0; 
+    int tr_i; 
     ARGS *args;
     while(1)
     {
+        tr_i = -1;
         addr_size = sizeof(server_storage);
         args = (ARGS *)malloc(sizeof *args);
         // accepting connection from the waiting queue
@@ -349,25 +340,35 @@ int main()
             //free(args);
             continue;
         }
-        printf("%d\n", new_socket);
-        printf("client has connected \n");
         //storing args to pass in thread handler
         args->socket = new_socket;
         args->db = db;
         args->prefix.p1 = config.prefix.p1;
         args->prefix.p2 = config.prefix.p2;
         //searching for available stop among threads
-        i = get_tid();
-        args->id = i;
+
+        if(get_tid()==-1)//this is where all the spots availabe are occupied, so we must wait until have some free spots
+        {
+            for(int i =0 ; i < 5 ;i++)
+            {
+                if(pthread_join(threads[i],NULL)==-1)
+                {
+                    perror("Pthread join error");
+                    continue;
+                }
+            }
+        }
+        tr_i = get_tid();
+        clients[tr_i] = 1;
+        args->id = tr_i;
         //creating a new thread for the new connection
-        clients[i] = 1;
-        if (pthread_create(&threads[i], NULL, handel_client, (void *)args) < 0)
+        
+        if (pthread_create(&threads[tr_i], NULL, handel_client, (void *)args) < 0)
         {
             perror("Thread creation failed in server program");
             free(args);
             continue;
         }
-
     }
     return 0;
 }
