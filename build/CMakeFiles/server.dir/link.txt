@@ -1,0 +1,1 @@
+/usr/bin/cc  -Wall -Wextra -rdynamic CMakeFiles/server.dir/server.c.o CMakeFiles/server.dir/ini.c.o -o server  -lsqlite3 -lpthread 

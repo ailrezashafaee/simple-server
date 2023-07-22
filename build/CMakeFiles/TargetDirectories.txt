@@ -1,0 +1,3 @@
+/home/zero0zero/c_project/pasargad/build/CMakeFiles/server.dir
+/home/zero0zero/c_project/pasargad/build/CMakeFiles/edit_cache.dir
+/home/zero0zero/c_project/pasargad/build/CMakeFiles/rebuild_cache.dir

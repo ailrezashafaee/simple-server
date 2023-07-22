@@ -48,7 +48,7 @@ typedef struct args_thread
     int id;
 } ARGS;
 
-static int load_callback(void *data, int argc, char **argv, char **azColName)
+static int load_callback(int argc, char **argv, char **azColName)
 {
     int number;
     time_t t;
@@ -96,7 +96,6 @@ static int handler(void *config, const char *section, const char *name,
 }
 void *handle_load(void *args_thread)
 {  
-    void *args=  args_thread;
     sqlite3 *db =(sqlite3*)args_thread;
     char *errMsg = 0;
     int rc;
@@ -154,14 +153,14 @@ int get_tid()
     }
     return -1;
 }
-int creat_tcp_socket(const char *address, const char *port, const char *af)
+int creat_tcp_socket(const char *address, const char *port, const char af)
 {
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
     // configuring the address family
-    if (af == "IPV4" || af == "4")
+    if (af == '4')
         hints.ai_family = AF_INET;
-    else if (af == "IPV6" || af == "6")
+    else if (af == '6')
     {
         hints.ai_family = AF_INET6;
     }
@@ -229,7 +228,8 @@ void *handel_client(void *parlSocket)
     {
         perror("recv failed in handler");
         free(buffer);
-        clients[id];
+        clients[id] = 0;
+        pthread_exit(0);
         return NULL;
     }
     // parsing
@@ -251,7 +251,7 @@ void *handel_client(void *parlSocket)
             free(buffer);
             pthread_exit(0);
             close(socket);
-            clients[i] = 0;
+            clients[id] = 0;
             return 0;
         }else{
             client_message.num_message = atoi(temp);
@@ -268,7 +268,7 @@ void *handel_client(void *parlSocket)
         perror("Message recieved has invalid type!\n");
         free(buffer);
         close(socket);
-        clients[i] = 0;
+        clients[id] = 0;
         pthread_exit(0);
         return 0;
     }
@@ -280,7 +280,7 @@ void *handel_client(void *parlSocket)
     {
         fprintf(stderr, "SQL exec error :%s\n", errorMsg);
         close(0);
-        clients[i] = 0;
+        clients[id] = 0;
         pthread_exit(0);
         return 0;
     }
@@ -324,7 +324,7 @@ int main()
     //creating socket using parsed config
     char port[20];
     sprintf(port,"%d",config.address.port);
-    int tcp_socket = creat_tcp_socket("127.0.0.1", port, "IPV4");
+    int tcp_socket = creat_tcp_socket("127.0.0.1", port, '4');
     int tr_i; 
     ARGS *args;
     while(1)
@@ -333,7 +333,7 @@ int main()
         addr_size = sizeof(server_storage);
         args = (ARGS *)malloc(sizeof *args);
         // accepting connection from the waiting queue
-        int new_socket = accept(tcp_socket, (struct sockaddr *)NULL, NULL);
+        int new_socket = accept(tcp_socket, (struct sockaddr *)&server_storage, &addr_size);
         if (new_socket == -1)
         {
             perror("error on accept");
