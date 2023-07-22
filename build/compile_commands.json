@@ -1,0 +1,12 @@
+[
+{
+  "directory": "/home/zero0zero/c_project/pasargad/build",
+  "command": "/usr/bin/cc  -I/path/to/pthread/headers -I/path/to/sqlite3/headers  -Wall -Wextra -g -o CMakeFiles/server.dir/server.c.o -c /home/zero0zero/c_project/pasargad/server.c",
+  "file": "/home/zero0zero/c_project/pasargad/server.c"
+},
+{
+  "directory": "/home/zero0zero/c_project/pasargad/build",
+  "command": "/usr/bin/cc  -I/path/to/pthread/headers -I/path/to/sqlite3/headers  -Wall -Wextra -g -o CMakeFiles/server.dir/ini.c.o -c /home/zero0zero/c_project/pasargad/ini.c",
+  "file": "/home/zero0zero/c_project/pasargad/ini.c"
+}
+]

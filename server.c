@@ -12,16 +12,14 @@
 #include <errno.h>
 #include <math.h>
 #include <sqlite3.h>    
-#include <semaphore.h>
-#include<pthread.h> 
+#include <pthread.h> 
 #define ISVALIDSOCKET(s) ((s) >= 0)
 #define CLOSESOCKET(s) close(s)
 #define SOCKETERR() (errno)
 #define REQUESTMAX 1024
 #define THREADS 10
-#define INTBUFFER 10
+#define NUMBUFFINT 12
 int clients[THREADS];
-sem_t mutex;
 typedef union message{
     int num_message;
     char *char_message;
@@ -48,17 +46,17 @@ typedef struct args_thread
     int id;
 } ARGS;
 
-static int load_callback(int argc, char **argv, char **azColName)
+static int load_callback(void *data,int argc, char **argv, char **azColName)
 {
     int number;
     time_t t;
+    const char*table = (const char *)data;
     for (int i = 0; i < argc; i++)
     {
-        //casting operation  :
         if(i == 1)
         {
             number = argv[i]?atoi(argv[i]) :0;
-            printf("%s = %d\n", azColName[i], number);
+            printf("%s = %d\n", table, number);
         }
         if(i == 2)
         {
@@ -66,7 +64,7 @@ static int load_callback(int argc, char **argv, char **azColName)
             printf("%s = %s\n", azColName[i],ctime(&t));
         }
     }
-    printf("\n");
+    printf("------------------\n");
     return 0;
 }
 static int handler(void *config, const char *section, const char *name,
@@ -102,8 +100,7 @@ void *handle_load(void *args_thread)
     char *sql = "SELECT * FROM NUMBERS";
     while(1)
     {
-        sleep(10);
-        rc = sqlite3_exec(db, sql, load_callback, NULL, &errMsg);
+        rc = sqlite3_exec(db, sql, load_callback, (void*)("number"), &errMsg);
         if (rc != SQLITE_OK)
         {
             fprintf(stderr, "SQL error: %s\n", errMsg);
@@ -111,15 +108,12 @@ void *handle_load(void *args_thread)
             pthread_exit(0);
             return 0;
         }
-        else
-        {
-            fprintf(stdout, "Operation done successfully\n");
-        }
+        sleep(10);
     }
     pthread_exit(0);
     return 0;
 }
-int subset_search(char message[],const char *sub_message)
+int subset_search(char message[],const char *sub_message)//returns the i as the last index of the subset in the message
 {
     int flg =0; 
     int j =0;
@@ -191,7 +185,7 @@ int creat_tcp_socket(const char *address, const char *port, const char af)
     }
     return tcp_socket;
 }
-char* insert_query(char *message,char*table,time_t t)
+char* insert_query(char *message,char*table,time_t t)//constructs a specific query with table name 
 {
     char sql_time_buff[20];
     sprintf(sql_time_buff, "%ld", t);
@@ -220,7 +214,7 @@ void *handel_client(void *parlSocket)
     int id = (int)args->id;
     free(parlSocket);
     //printf("thread %d is started\n",id);
-    //sleep(2);
+    //sleep(5);
     // reading message
     char *buffer = (char *)malloc(REQUESTMAX);
     int reccng = recv(socket ,buffer,REQUESTMAX, 0);
@@ -231,6 +225,8 @@ void *handel_client(void *parlSocket)
         clients[id] = 0;
         pthread_exit(0);
         return NULL;
+    }else{
+        
     }
     // parsing
     Message client_message;
@@ -247,13 +243,26 @@ void *handel_client(void *parlSocket)
         strncpy(temp, buffer + i, REQUESTMAX - i);
         if(strlen(temp)> 10)
         {
-            //perror("Integer too long!, saving it as an string\n");
+            perror("Integer too long!\n");
             free(buffer);
-            pthread_exit(0);
             close(socket);
             clients[id] = 0;
+            pthread_exit(0);
             return 0;
         }else{
+            //checking if the string has the correct type : 
+            for(int j =0 ; j< strlen(temp); j++)
+            {
+                if(!(temp[j] <= '9' && temp[j] >= '0'))
+                {
+                    perror("number recieved is not an integer!");
+                    free(buffer);
+                    close(socket);
+                    clients[id]= 0;
+                    pthread_exit(0);
+                    return 0;
+                }
+            }
             client_message.num_message = atoi(temp);
             sql_query = insert_query(temp , "NUMBERS",t);
         }
@@ -262,8 +271,7 @@ void *handel_client(void *parlSocket)
     {
         strncpy(temp, buffer +i, REQUESTMAX - i);
         client_message.char_message = temp;
-        sql_query = insert_query(temp, "MESSAGE", t);
-        
+        sql_query = insert_query(temp, "MESSAGES", t);
     }else{
         perror("Message recieved has invalid type!\n");
         free(buffer);
@@ -279,7 +287,7 @@ void *handel_client(void *parlSocket)
     if (query_db != SQLITE_OK)
     {
         fprintf(stderr, "SQL exec error :%s\n", errorMsg);
-        close(0);
+        close(socket);
         clients[id] = 0;
         pthread_exit(0);
         return 0;
@@ -295,49 +303,45 @@ int main()
 {
     //initializing
     Configuration config;
-    struct sockaddr_storage server_storage;
-    socklen_t addr_size;
     pthread_t threads[THREADS];
     pthread_t loader;
-    sem_init(&mutex ,0 , 1);
     sqlite3 *db;
     //opening our database file
-    int rc = sqlite3_open("messages.db", &db);
+    int rc = sqlite3_open("src/messages.db", &db);
     if(rc)
     {
         fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
         exit(1);
     }
+    //making a thread for printing out all the p1 type messages stored in database
     sqlite3 *load_arg = db;
     if (pthread_create(&loader, NULL, handle_load, (void *)load_arg) < 0)
     {
         perror("Thread creation failed in server program");
-        free(load_arg);
-        return -1;
+        exit(1);
     }
     // reading fconfig.ini
-    if (ini_parse("fconfig.ini", handler, &config) < 0)
+    if (ini_parse("src/fconfig.ini", handler, &config) < 0)
     {
-        printf("Cannot load the config file!");
-        return 1;
+        perror("Cannot load the config file!");
+        exit(1);
     }
     //creating socket using parsed config
-    char port[20];
+    char port[NUMBUFFINT];
     sprintf(port,"%d",config.address.port);
     int tcp_socket = creat_tcp_socket("127.0.0.1", port, '4');
-    int tr_i; 
+    int tr_i; //thread iterator
     ARGS *args;
     while(1)
     {
         tr_i = -1;
-        addr_size = sizeof(server_storage);
         args = (ARGS *)malloc(sizeof *args);
         // accepting connection from the waiting queue
-        int new_socket = accept(tcp_socket, (struct sockaddr *)&server_storage, &addr_size);
+        int new_socket = accept(tcp_socket, (struct sockaddr *)NULL, NULL);
         if (new_socket == -1)
         {
             perror("error on accept");
-            //free(args);
+            free(args);
             continue;
         }
         //storing args to pass in thread handler
@@ -362,11 +366,18 @@ int main()
         clients[tr_i] = 1;
         args->id = tr_i;
         //creating a new thread for the new connection
-        
         if (pthread_create(&threads[tr_i], NULL, handel_client, (void *)args) < 0)
         {
             perror("Thread creation failed in server program");
             free(args);
+            continue;
+        }
+    }
+    for(int i = 0; i <THREADS ; i++)
+    {
+        if (pthread_join(threads[i], NULL) == -1)
+        {
+            perror("Pthread join error");
             continue;
         }
     }

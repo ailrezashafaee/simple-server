@@ -6,5 +6,5 @@ C_DEFINES =
 
 C_INCLUDES = -I/path/to/pthread/headers -I/path/to/sqlite3/headers
 
-C_FLAGS =  -Wall -Wextra
+C_FLAGS =  -Wall -Wextra -g
 
