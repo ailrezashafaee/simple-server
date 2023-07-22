@@ -45,7 +45,7 @@ except Exception as e:
 #testing true examples
 test_messages_number = []
 test_messages_text = []
-number_of_tests = 10
+number_of_tests = 1000
 for i in range(number_of_tests):
     test_messages_number.append((random.randint(1,999999999)))
 for i in range(number_of_tests):
@@ -61,9 +61,9 @@ for message in test_messages_text:
     assert red == SUCCESS
 #checking in the database 
 res = cur.execute("SELECT count(*) FROM NUMBERS;")
-assert res.fetchone()[0] == 10
+assert res.fetchone()[0] == number_of_tests
 res = cur.execute("SELECT count(*) FROM MESSAGES;")
-assert res.fetchone()[0] == 10
+assert res.fetchone()[0] == number_of_tests
 res_number = cur.execute("SELECT (message) FROM NUMBERS")
 it = 0
 for row in res_number:
