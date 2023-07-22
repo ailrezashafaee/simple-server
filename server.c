@@ -307,7 +307,7 @@ int main()
     pthread_t loader;
     sqlite3 *db;
     //opening our database file
-    int rc = sqlite3_open("src/messages.db", &db);
+    int rc = sqlite3_open("../src/messages.db", &db);
     if(rc)
     {
         fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
@@ -321,7 +321,7 @@ int main()
         exit(1);
     }
     // reading fconfig.ini
-    if (ini_parse("src/fconfig.ini", handler, &config) < 0)
+    if (ini_parse("../src/fconfig.ini", handler, &config) < 0)
     {
         perror("Cannot load the config file!");
         exit(1);
