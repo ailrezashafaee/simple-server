@@ -61,7 +61,7 @@ static int load_callback(void *data,int argc, char **argv, char **azColName)
         if(i == 2)
         {
             t = argv[i] ? (time_t)atoi(argv[i]) : 0;
-            printf("%s = %s\n", azColName[i],ctime(&t));
+            printf("%s = %s", azColName[i],ctime(&t));
         }
     }
     printf("------------------\n");
@@ -108,7 +108,7 @@ void *handle_load(void *args_thread)
             pthread_exit(0);
             return 0;
         }
-        sleep(60);
+        sleep(120);
     }
     pthread_exit(0);
     return 0;
@@ -229,7 +229,6 @@ void *handel_client(void *parlSocket)
     // parsing
     Message client_message;
     int i;
-    printf("first buffer%s\n----\n",buffer);
     char temp[REQUESTMAX] = "";
     time_t t;
     time(&t);
@@ -239,12 +238,14 @@ void *handel_client(void *parlSocket)
     //constructing query
     if ((i = subset_search(buffer,p1)) != -1)
     {
-
         strncpy(temp, buffer + i, strlen(buffer) - i);
         if(strlen(temp)> 10)
         {
             perror("Integer too long!\n");
+            const char *reply = "INTEGER_OVERFLOW";
+            write(socket, reply, strlen(reply));
             close(socket);
+            free(buffer);
             clients[id] = 0;
             pthread_exit(0);
             return 0;
@@ -255,7 +256,10 @@ void *handel_client(void *parlSocket)
                 if(!(temp[j] <= '9' && temp[j] >= '0'))
                 {
                     perror("number recieved is not an integer!");
+                    const char *reply = "INTEGER_TYPE_ERROR";
+                    write(socket, reply, strlen(reply));
                     close(socket);
+                    free(buffer);
                     clients[id]= 0;
                     pthread_exit(0);
                     return 0;
@@ -272,22 +276,30 @@ void *handel_client(void *parlSocket)
         sql_query = insert_query(temp, "MESSAGES", t);
     }else{
         perror("Message recieved has invalid type!\n");
+        const char *reply = "INVALID_FORMAT";
+        write(socket, reply, strlen(reply));
         close(socket);
+        free(buffer);
         clients[id] = 0;
         pthread_exit(0);
         return 0;
     }
+    free(buffer);
     //excuting query in sqlite database
     query_db = sqlite3_exec(db, sql_query, NULL, 0, &errorMsg);
     free(sql_query);
     if (query_db != SQLITE_OK)
     {
         fprintf(stderr, "SQL exec error :%s\n", errorMsg);
+        perror("query excuation error");
         close(socket);
         clients[id] = 0;
-        pthread_exit(0);
+        pthread_exit(0);   
         return 0;
     }
+
+    const char *reply = "SUCCESS";
+    write(socket, reply, strlen(reply));
     //printf("Thread %d finished\n",id);
     clients[id] = 0;
     close(socket);
@@ -303,7 +315,7 @@ int main()
     pthread_t loader;
     sqlite3 *db;
     //opening our database file
-    int rc = sqlite3_open("messages.db", &db);
+    int rc = sqlite3_open("../db/messages.db", &db);
     if(rc)
     {
         fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
@@ -317,7 +329,7 @@ int main()
         exit(1);
     }
     // reading fconfig.ini
-    if (ini_parse("src/fconfig.ini", handler, &config) < 0)
+    if (ini_parse("../config/fconfig.ini", handler, &config) < 0)
     {
         perror("Cannot load the config file!");
         exit(1);
