@@ -108,7 +108,7 @@ void *handle_load(void *args_thread)
             pthread_exit(0);
             return 0;
         }
-        sleep(10);
+        sleep(120);
     }
     pthread_exit(0);
     return 0;
